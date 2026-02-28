@@ -82,6 +82,27 @@ function ShowroomPedestal() {
     );
 }
 
+function Turntable({ children }: { children: React.ReactNode }) {
+    const groupRef = useRef<THREE.Group>(null);
+    useFrame((state, delta) => {
+        if (groupRef.current) {
+            groupRef.current.rotation.y += delta * 0.15;
+        }
+    });
+    return <group ref={groupRef}>{children}</group>;
+}
+
+function CameraRig() {
+    useFrame((state) => {
+        const { pointer, camera } = state;
+        // Smoothly interpolate camera position based on mouse/pointer
+        camera.position.x = THREE.MathUtils.lerp(camera.position.x, 5 + pointer.x * 1.5, 0.05);
+        camera.position.y = THREE.MathUtils.lerp(camera.position.y, 2 + pointer.y * 1, 0.05);
+        camera.lookAt(0, 0, 0);
+    });
+    return null;
+}
+
 export default function SceneContainer() {
     return (
         <div className="fixed inset-0 -z-10 bg-[#0a0a0a]">
@@ -98,8 +119,10 @@ export default function SceneContainer() {
                     <ambientLight intensity={0.4} />
                     <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} castShadow />
 
-                    <ZenithModel />
-                    <ShowroomPedestal />
+                    <Turntable>
+                        <ZenithModel />
+                        <ShowroomPedestal />
+                    </Turntable>
 
                     <Environment preset="city" />
 
@@ -119,6 +142,8 @@ export default function SceneContainer() {
                         maxPolarAngle={Math.PI / 2}
                         makeDefault
                     />
+
+                    <CameraRig />
 
                     <EffectComposer enableNormalPass={false}>
                         <SSAO
