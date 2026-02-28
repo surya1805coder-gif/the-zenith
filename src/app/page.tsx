@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import AiConcierge from "@/components/chat/AiConcierge";
 
 export default function Home() {
   return (
@@ -49,6 +50,9 @@ export default function Home() {
         <span className="text-[10px] uppercase tracking-widest opacity-40">Scroll</span>
         <div className="w-[1px] h-12 bg-gradient-to-b from-white to-transparent opacity-20" />
       </motion.div>
+
+      <AiConcierge />
     </main>
   );
 }
+

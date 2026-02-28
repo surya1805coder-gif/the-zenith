@@ -1,56 +1,83 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef, Suspense } from "react";
+import { useRef, Suspense, useEffect } from "react";
 import * as THREE from "three";
 import {
     Environment,
     OrbitControls,
     ContactShadows,
-    RoundedBox
+    useGLTF,
+    Cylinder,
+    Torus
 } from "@react-three/drei";
-import { EffectComposer, Bloom, Noise, Vignette } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, Noise, Vignette, SSAO } from "@react-three/postprocessing";
 import { useConfigStore } from "@/store/useConfigStore";
 
-function LuxuryCar() {
-    const meshRef = useRef<THREE.Group>(null);
+function ZenithModel() {
+    const { scene } = useGLTF("/zenith_car.glb");
     const paintColor = useConfigStore((state) => state.paintColor);
 
-    useFrame((state) => {
-        if (meshRef.current) {
-            // Subtle floating animation for futuristic display
-            meshRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.8) * 0.05;
-        }
-    });
+    useEffect(() => {
+        if (!scene) return;
+
+        scene.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+                const mesh = child as THREE.Mesh;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                // Smart Filter for Car Body
+                const matName = mesh.material instanceof THREE.Material ? mesh.material.name.toLowerCase() : "";
+
+                // Final Target List: The main body paint
+                const targetMaterials = ["material.005", "material.006", "material.007", "material.008", "material.009", "material.010"];
+
+                if (targetMaterials.includes(matName) && mesh.material instanceof THREE.MeshStandardMaterial) {
+                    const newMaterial = mesh.material.clone();
+                    newMaterial.color = new THREE.Color(paintColor);
+                    newMaterial.metalness = 0.9;
+                    newMaterial.roughness = 0.05;
+                    mesh.material = newMaterial;
+                }
+            }
+        });
+    }, [scene, paintColor]);
 
     return (
-        <group ref={meshRef}>
-            {/* Chassis - Flattened Box */}
-            <mesh position={[0, 0, 0]} castShadow>
-                <boxGeometry args={[4, 0.4, 1.8]} />
-                <meshStandardMaterial
-                    color={paintColor}
-                    metalness={0.9}
-                    roughness={0.05}
-                    envMapIntensity={1.5}
-                />
+        <primitive
+            object={scene}
+            scale={0.4}
+            position={[0, -0.5, 0]}
+            onClick={(e: any) => {
+                e.stopPropagation();
+                alert(`Target Acquired 🎯\n\nMesh Name: ${e.object.name}\nMaterial Name: ${e.object.material.name}`);
+            }}
+        />
+    );
+}
+
+function ShowroomPedestal() {
+    const paintColor = useConfigStore((state) => state.paintColor);
+
+    return (
+        <group>
+            {/* The Base */}
+            <mesh position={[0, -0.55, 0]} receiveShadow>
+                <cylinderGeometry args={[4, 4, 0.1, 64]} />
+                <meshStandardMaterial color="#050505" metalness={0.9} roughness={0.1} />
             </mesh>
 
-            {/* Cabin - Smaller Rounded Box */}
-            <RoundedBox
-                args={[2, 0.5, 1.4]}
-                radius={0.2}
-                smoothness={4}
-                position={[0, 0.4, 0]}
-                castShadow
-            >
+            {/* The Glowing Ring */}
+            <mesh position={[0, -0.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[3.8, 0.02, 16, 100]} />
                 <meshStandardMaterial
                     color={paintColor}
-                    metalness={0.9}
-                    roughness={0.05}
-                    envMapIntensity={2}
+                    emissive={paintColor}
+                    emissiveIntensity={2.5}
+                    toneMapped={false}
                 />
-            </RoundedBox>
+            </mesh>
         </group>
     );
 }
@@ -59,6 +86,7 @@ export default function SceneContainer() {
     return (
         <div className="fixed inset-0 -z-10 bg-[#0a0a0a]">
             <Canvas
+                shadows
                 camera={{ position: [5, 2, 5], fov: 35 }}
                 gl={{
                     antialias: true,
@@ -70,13 +98,13 @@ export default function SceneContainer() {
                     <ambientLight intensity={0.4} />
                     <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} castShadow />
 
-                    <LuxuryCar />
+                    <ZenithModel />
+                    <ShowroomPedestal />
 
-                    {/* Showroom Lighting & Environment */}
                     <Environment preset="city" />
 
                     <ContactShadows
-                        position={[0, -0.5, 0]}
+                        position={[0, -0.49, 0]}
                         opacity={0.6}
                         scale={10}
                         blur={2}
@@ -84,16 +112,21 @@ export default function SceneContainer() {
                         resolution={256}
                     />
 
-                    {/* Restricted Camera Controls */}
                     <OrbitControls
                         enablePan={false}
                         minDistance={4}
-                        maxDistance={10}
+                        maxDistance={20}
                         maxPolarAngle={Math.PI / 2}
                         makeDefault
                     />
 
-                    <EffectComposer>
+                    <EffectComposer enableNormalPass={false}>
+                        <SSAO
+                            intensity={1.5}
+                            radius={0.4}
+                            luminanceInfluence={0.5}
+                            color={new THREE.Color("black")}
+                        />
                         <Bloom
                             luminanceThreshold={1}
                             mipmapBlur
@@ -109,3 +142,4 @@ export default function SceneContainer() {
     );
 }
 
+useGLTF.preload("/zenith_car.glb");
